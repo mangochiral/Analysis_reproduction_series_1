@@ -254,3 +254,9 @@ plot_grid(ncol = 2, H3K27ac.corplot,H3K27me3.corplot)
 ```
 
 From the figure 1 panel c only one them was reproducible.
+
+
+```{r}
+sessionInfo()
+```
+
