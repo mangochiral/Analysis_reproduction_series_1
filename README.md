@@ -4,4 +4,4 @@ Here I am trying to reproduce already published papers from the past. I started 
 To run the code you can refer to the RMD and source the supplementary code to run it.
 Data was extracted GEO GSE285248 (RNA-seq) and GSE285245 (CUT&RUN).
 
-All the library version info is present in the Markdown file.
+All the library version info is present in the PDF file.
