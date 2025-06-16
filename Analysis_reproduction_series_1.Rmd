@@ -34,7 +34,8 @@ suppressPackageStartupMessages({
   library(rGREAT)
   library(org.Mm.eg.db)
   library(ChIPpeakAnno)
-  library(tidyverse)})
+  library(tidyverse)
+  library(pheatmap)})
 ```
 
 ### Sourcing Functions
@@ -44,6 +45,7 @@ source("C:/practice_bulk/pre_processing_data.R")
 source("C:/practice_bulk/Quality_control.R")
 source("C:/practice_bulk/Run_dge.R" )
 source("C:/practice_bulk/gene_annotation.R")
+source("C:/practice_bulk/Differential_Peaks.R")
 ```
 
 Sourcing data from Deciphering the role of histone modifications in memory and exhausted CD8 T cells
@@ -255,8 +257,89 @@ plot_grid(ncol = 2, H3K27ac.corplot,H3K27me3.corplot)
 
 From the figure 1 panel c only one them was reproducible.
 
+```{r}
+# Setting the groups based upon the folchange sign for logfold change in HPTMs
+joined_df.rna.H3K27ac <- joined_df.rna.H3K27ac |> mutate(grp = if_else(H3K27ac_FC <0 , "T_ex", "T_mem"))
+joined_df.rna.H3K27me3 <- joined_df.rna.H3K27me3 |> mutate(grp = if_else(H3K27me3_FC <0 , "T_ex", "T_mem"))
+
+#Plots
+vplot.H3K27ac <-  ggplot(joined_df.rna.H3K27ac, aes(factor(grp), RNA_FC, fill = grp)) + 
+  geom_violin() +
+  labs(
+      x = "H3K27ac",
+      y = "Log_2 RNA",
+    ) +
+  scale_fill_manual(name = "" , values = c("salmon", "lightblue"))+
+  theme_classic()
+
+vplot.H3K27me3 <-  ggplot(joined_df.rna.H3K27me3, aes(factor(grp), RNA_FC, fill = grp)) + 
+  geom_violin() +
+  labs(
+      x = "H3K27me3",
+      y = "Log_2 RNA",
+    ) +
+  scale_fill_manual(name = "" , values = c("salmon", "lightblue"))+
+  theme_classic()
+plot_grid(ncol = 2, vplot.H3K27ac, vplot.H3K27me3)
+```
+
+From this plot it can be see for one of the hPTMS plots from the fig 5 panel j was reproducible
+
+### Next we reproduce fig 5 panel l heatmap
+
+```{r}
+# Step 1: Normalize counts and filter for DE genes
+dfNormalizedCounts <- as.data.frame(counts(deRNA, normalized = TRUE))
+dfNormalizedCounts <- dfNormalizedCounts[rownames(dfNormalizedCounts) %in% dge_sig.rna$gene, 9:16]
+
+# Step 2: Extract metadata for annotation
+setcol <- SetCondition(dfNormalizedCounts)
+data <- str_split_fixed(setcol$Samples, "_", 6)
+setcol$rep <- data[, 5]
+setcol$Group <- paste0(setcol$celltyp, "_", setcol$rep)
+colnames(dfNormalizedCounts) <- setcol$Group
+
+# Step 3: Z-score scaling (row-wise)
+scale.data <- t(scale(t(dfNormalizedCounts)))
+
+# Step 4: Build annotation_col dataframe
+annotation_col <- data.frame(CellType = setcol$celltyp)
+rownames(annotation_col) <- colnames(scale.data)
+
+# Step 5: Define annotation colors
+ann_colors <- list(CellType = c("Tex" = "orange", "Tmem" = "blue"))
+
+# Step 6: Plot heatmap with clustered rows and hidden dendrogram
+pheatmap(
+  scale.data,
+  col = colorRampPalette(c("blue", "white", "orange"))(100),
+  cluster_rows = TRUE,
+  cluster_cols = FALSE,
+  treeheight_row = 0,           # Hides dendrogram but keeps clustering
+  show_rownames = FALSE,
+  annotation_col = annotation_col,
+  annotation_colors = ann_colors
+)
+
+```
+
+### Now look for differential peaks counts accross various hPTMS for Tmem vs Tex
+
+```{r}
+#,DPE.H3K27me3$qvals$TexvsTmem_padj, DPE.H3K9me3$qvals$TexvsTmem_padj
+H3K27ac.Sig <- CountDPE(DPE.H3K27ac,"TexvsTmem_H3K27ac")
+H3K27me3.Sig <- CountDPE(DPE.H3K27me3,"TexvsTmem_H3K27me3")
+H3K9me3.Sig <- CountDPE(DPE.H3K9me3,"TexvsTmem_H3K9me3")
+
+all_comparison <- rbind(H3K9me3.Sig,H3K27me3.Sig,H3K27ac.Sig )
+
+ggplot(data = all_comparison, aes(x=com_peaks,y=comparison)) +
+  geom_col(aes(fill=com_peaks > 0),width=0.5,show.legend = FALSE) +
+  scale_fill_manual(values = c("#BDBDBD","black")) +
+  labs(x="# of peaks",y="")+
+  theme_classic()
+```
 
 ```{r}
 sessionInfo()
 ```
-
